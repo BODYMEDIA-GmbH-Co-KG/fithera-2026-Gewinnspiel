@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>fithera 2026 Gewinnspiel - Gewinner ziehen</title>
+<style>
+  :root {
+    --primary: #8c368c;
+    --accent: #e71f69;
+    --ink: #1d1320;
+    --muted: #6b5c6b;
+    --line: #e6dde6;
+    --bg: #faf6fa;
+    --card: #ffffff;
+    --grad-purple: #9c4593;
+    --grad-blue: #5bb8de;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    line-height: 1.5;
+  }
+  .card {
+    width: 100%;
+    max-width: 480px;
+    background: var(--card);
+    border-radius: 20px;
+    box-shadow: 0 12px 40px rgba(140, 54, 140, 0.12);
+    overflow: hidden;
+  }
+  .banner {
+    background: linear-gradient(135deg, var(--grad-purple), var(--grad-blue));
+    padding: 32px 32px 28px;
+    color: #fff;
+  }
+  .banner .kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 12px;
+    font-weight: 700;
+    opacity: 0.85;
+    margin: 0 0 10px;
+  }
+  .banner h1 { margin: 0; font-size: 23px; line-height: 1.2; font-weight: 800; }
+  .body { padding: 28px 32px 32px; }
+  button {
+    width: 100%; margin-top: 16px; padding: 15px; font-size: 16px; font-weight: 700;
+    color: #fff; background: var(--primary); border: none; border-radius: 11px; cursor: pointer;
+  }
+  button:hover { filter: brightness(1.05); }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  .count {
+    text-align: center; padding: 18px; border-radius: 14px;
+    background: #f4ecf4; margin-bottom: 6px;
+  }
+  .count .num { font-size: 40px; font-weight: 800; color: var(--primary); line-height: 1; }
+  .count .lbl { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .winner {
+    border: 1.5px solid var(--line); border-radius: 14px; padding: 16px 18px; margin-top: 12px;
+  }
+  .winner .tag {
+    display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #fff; background: var(--accent);
+    padding: 3px 10px; border-radius: 999px; margin-bottom: 8px;
+  }
+  .winner .name { font-size: 18px; font-weight: 700; }
+  .winner .meta { font-size: 14px; color: var(--muted); margin-top: 2px; }
+  .msg { margin-top: 14px; padding: 13px 15px; border-radius: 11px; font-size: 14px; display: none; }
+  .msg.show { display: block; }
+  .msg.ok { background: #f0e6f0; color: var(--primary); }
+  .msg.err { background: #fde8f0; color: var(--accent); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 14px; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="banner">
+      <p class="kicker">fithera 2026 · Verlosung</p>
+      <h1>Gewinner ziehen</h1>
+    </div>
+    <div class="body">
+      <div class="count">
+        <div class="num" id="countNum">-</div>
+        <div class="lbl">Teilnehmer insgesamt</div>
+      </div>
+
+      <div id="winnersBox"></div>
+
+      <button id="drawBtn" onclick="draw()">2 Gewinner ziehen</button>
+      <div id="adminMsg" class="msg"></div>
+      <p class="hint">Die Gewinner werden im Tab "Gewinner" gespeichert. Einmal gezogen, bleibt das Ergebnis fest.</p>
+    </div>
+  </div>
+
+<script>
+  // Gleiche Apps-Script-URL wie im Formular:
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzjQ7kGCujA1pfKfdLMtyAXLCpHFwdeK_mTCNwT0LsyszMyYn8BtFcUD-sWH5L7qSyMlA/exec";
+
+  // JSONP-Helfer (umgeht CORS bei Apps Script)
+  function jsonp(params) {
+    return new Promise(function (resolve, reject) {
+      var cb = "cb_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+      window[cb] = function (data) { resolve(data); cleanup(); };
+      var url = SCRIPT_URL + (SCRIPT_URL.indexOf("?") === -1 ? "?" : "&") + params + "&callback=" + cb;
+      var s = document.createElement("script");
+      s.src = url;
+      s.onerror = function () { reject(new Error("network")); cleanup(); };
+      function cleanup() { delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+      document.body.appendChild(s);
+    });
+  }
+
+  function showMsg(t, type) {
+    var m = document.getElementById("adminMsg");
+    m.textContent = t; m.className = "msg show " + type;
+  }
+
+  function init() {
+    jsonp("action=count").then(function (res) {
+      if (res.status === "ok") document.getElementById("countNum").textContent = res.count;
+    });
+    jsonp("action=winners").then(function (res) {
+      if (res.status === "ok" && res.winners && res.winners.length) {
+        renderWinners(res.winners, true);
+      }
+    });
+  }
+
+  function renderWinners(winners, locked) {
+    var box = document.getElementById("winnersBox");
+    box.innerHTML = "";
+    winners.forEach(function (w, i) {
+      var div = document.createElement("div");
+      div.className = "winner";
+      div.innerHTML =
+        '<span class="tag">Gewinner ' + (i + 1) + '</span>' +
+        '<div class="name">' + esc(w.vorname) + ' ' + esc(w.nachname) + '</div>' +
+        '<div class="meta">' + esc(w.firma) + ' · ' + esc(w.email) + '</div>';
+      box.appendChild(div);
+    });
+    if (locked) {
+      document.getElementById("drawBtn").disabled = true;
+      showMsg("Die Gewinner wurden bereits gezogen.", "ok");
+    }
+  }
+
+  function draw() {
+    var btn = document.getElementById("drawBtn");
+    btn.disabled = true; btn.textContent = "Ziehe...";
+    jsonp("action=draw").then(function (res) {
+      btn.textContent = "2 Gewinner ziehen";
+      if (res.status === "ok" || res.status === "already_drawn") {
+        renderWinners(res.winners, true);
+      } else if (res.status === "not_enough") {
+        btn.disabled = false;
+        showMsg("Noch nicht genug Teilnehmer (" + res.count + "). Mindestens 2 noetig.", "err");
+      } else {
+        btn.disabled = false;
+        showMsg("Fehler beim Ziehen. Bitte erneut versuchen.", "err");
+      }
+    }).catch(function () {
+      btn.disabled = false; btn.textContent = "2 Gewinner ziehen";
+      showMsg("Verbindung fehlgeschlagen.", "err");
+    });
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  init();
+</script>
+</body>
+</html>
